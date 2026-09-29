@@ -19,7 +19,7 @@
  * Difficulty: 1
  */
 int bitAnd(int x, int y) {
-    return 2;
+    return ~((~x)|(~y));
 }
 
 /*
@@ -30,7 +30,7 @@ int bitAnd(int x, int y) {
  *   Difficulty: 1
  */
 int bitXor(int x, int y) {
-    return 2;
+    return ~(x&y)&(~((~x)&~y));
 }
 
 /*
@@ -50,7 +50,14 @@ int bitXor(int x, int y) {
  *   1 if x and y have the same sign , 0 otherwise.
  */
 int samesign(int x, int y) {
-    return 2;
+    if(!x){
+        if(!y) return 1;
+        else return 0;
+    }
+    else{
+        if(!y) return 0;
+        return !((x^y)&(1<<31));
+    }
 }
 
 /*
@@ -62,8 +69,29 @@ int samesign(int x, int y) {
  *   Max ops: 25
  *   Difficulty: 4
  */
+ //使用不当运算符
+// int logtwo(int v) {
+//     if(v<1)return -1;
+//     return logtwo(v>>1)+1;
+// }
+//二分查找
 int logtwo(int v) {
-    return 2;
+    int r=0;
+    int s=((v>>16)>0)<<4;
+    r=r|s;
+    v=v>>s;
+    s=((v>>8)>0)<<3;
+    r=r|s;
+    v=v>>s;
+    s=((v>>4)>0)<<2;
+    r=r|s;
+    v=v>>s;
+    s=((v>>2)>0)<<1;
+    r=r|s;
+    v=v>>s;
+    s=((v>>1)>0);
+    r=r|s;
+    return r;
 }
 
 /*
@@ -75,10 +103,15 @@ int logtwo(int v) {
  *    Max ops: 17
  *    Difficulty: 2
  */
+ //超限
 int byteSwap(int x, int n, int m) {
-    return 2;
+    int a=n<<3;
+    int b=m<<3;
+    // int tempn =((x>>(n<<3))&0xFF)<<(m<<3);
+    // int tempm =((x>>(m<<3))&0xFF)<<(n<<3);
+    // x=(~(0xFF<<(m<<3)))&(~(0xFF<<(n<<3)))&x;
+    return (((x>>a)&0xFF)<<b)|(((x>>b)&0xFF)<<a)|((~(0xFF<<b))&(~(0xFF<<a))&x);
 }
-
 /*
  * reverse - Reverse the bit order of a 32-bit unsigned integer.
  *   Example: reverse(0xFFFF0000) = 0x0000FFFF reverse(0x80000000)=0x1 reverse(0xA0000000)=0x5
@@ -87,8 +120,19 @@ int byteSwap(int x, int n, int m) {
  *   Max ops: 30
  *   Difficulty: 3
  */
+ //time out
+ //循环条件不能写!!(i>>4)
+ //无符号数需要写1u否则越界
+ //>>2是乘4
+ //～是取反不是！
 unsigned reverse(unsigned v) {
-    return 2;
+    for(int i=16;!!i;i--){
+        unsigned a=(1u<<(32-i));
+        unsigned b=(1u<<(i-1));
+        unsigned c=33-(i<<1);
+        v=(v&(~a)&(~b))+((v&a)>>c)+((v&b)<<c);
+    }
+    return v;
 }
 
 /*
@@ -99,8 +143,9 @@ unsigned reverse(unsigned v) {
  *   Max ops: 20
  *   Difficulty: 3
  */
+ //codex说mask，什么是mask，跟这个的区别是什么? 
 int logicalShift(int x, int n) {
-    return 2;
+    return (x>>n)&(~((((~(1u<<31))&x)>>n)<<1)^((x>>n)<<1));
 }
 
 /*
@@ -112,7 +157,25 @@ int logicalShift(int x, int n) {
  *   Difficulty: 4
  */
 int leftBitCount(int x) {
-    return 2;
+    int v=x^(0xFFFFFFFF);
+    int top=~(!(v&(1u<<31)))+1;//if的代替
+    int r=0;
+    int s=(!!(v>>16))<<4;
+    r=r|s;
+    v=v>>s;
+    s=(!!(v>>8))<<3;
+    r=r|s;
+    v=v>>s;
+    s=(!!(v>>4))<<2;
+    r=r|s;
+    v=v>>s;
+    s=(!!(v>>2))<<1;
+    r=r|s;
+    v=v>>s;
+    s=(!!(v>>1));
+    r=r|s;
+    v=v>>s;
+    return (((31+(~r)+1)&top)|(0&(~top)))+!v;//边界值-1的处理，逻辑比较复杂
 }
 
 /*
@@ -124,7 +187,42 @@ int leftBitCount(int x) {
  *   Difficulty: 4
  */
 unsigned float_i2f(int x) {
-    return 2;
+    unsigned v = x;
+    int a=1u<<31;
+    int r=0;
+    int s=0;
+    unsigned b = 0x7fffffu;
+
+    if(!x) return 0;//单独处理0
+    int result=x&a;//保留符号位
+
+    if(result){//负数取绝对值
+        v=~v+1;
+    }
+    unsigned m=v;
+    for(int i=4;i>=0;i--){//求最高位的位置
+        s=((v>>(1<<i))>0)<<i;
+        r=r|s;
+        v=v>>s;
+    }//9
+    //阶码：127+r
+    result=result|((127+r)<<23);//符号位+阶码
+
+    unsigned tail = m << (31 - r);//若不足先补上
+    unsigned rest = tail & 0xffu;
+    tail = (tail >> 8) & b;//保留所需的23位
+    if (rest > 0x80u)//8位舍弃的数若达到一半以上进位
+        tail = tail + 1;
+    else if (rest == 0x80u)//若刚好一半使末位为0
+        tail = tail + (tail & 1);
+    // int tail=x&(~a);//9
+    // if(r>24){
+    //     result=(result|((tail>>(r-23))&b))+!!((~b)&tail);
+    // }
+    // else{
+    //     result=result|(tail&b);//11
+    // }
+    return result+tail;
 }
 
 /*
@@ -138,8 +236,19 @@ unsigned float_i2f(int x) {
  *   Max ops: 30
  *   Difficulty: 4
  */
-unsigned floatScale2(unsigned uf) {
-    return 2;
+unsigned floatScale2(unsigned uf){
+    unsigned sign=uf&0x80000000u;
+    unsigned exp=uf&0x7f800000u;
+    unsigned frac=uf&0x007fffffu;
+
+    if (exp==0x7f800000u)// NaN 或无穷大 
+        return uf;
+    if (!exp)
+        return sign|(frac << 1);// 零或非规格化数
+    exp = exp+0x00800000u;//阶码字段加 1 
+    if (exp==0x7f800000u)// 溢出：返回无穷大，尾数必须为 0 
+        return sign|exp;
+    return sign|exp|frac;// 普通情况：原符号、加一后的阶码、原尾数 
 }
 
 /*
@@ -155,8 +264,30 @@ unsigned floatScale2(unsigned uf) {
  *   Max ops: 60
  *   Difficulty: 3
  */
+//符号位1+阶码11+尾码52
+//int范围-2^7,2^7-1
+//8/8+
+//负数先变整数，再取补码
 int float64_f2i(unsigned uf1, unsigned uf2) {
-    return 2;
+    unsigned sign=uf2&0x80000000u;
+    unsigned exp=uf2&0x7FF00000u;
+    unsigned frac1=uf2&0x000FFFFFu;
+    unsigned frac2=uf1&0xFFFFFFFFu;
+    int temp=(exp>>20)-1023;
+    if(temp>7)return 0x80000000;
+    else if(!(temp-7)){
+        if((!sign)){
+            return 0x80000000;
+        }
+    }
+    else if(temp<0)return 0;
+    unsigned tail=(frac1<<11)|0x80000000|((frac2&0xFFE00000)>>11);
+    tail=tail>>(32-temp-1);
+    if(sign){
+        tail=(~tail)+1;
+        tail=tail&(~0x80000000u);
+    }
+    return sign|tail;
 }
 
 /*
@@ -173,5 +304,9 @@ int float64_f2i(unsigned uf1, unsigned uf2) {
  *   Difficulty: 4
  */
 unsigned floatPower2(int x) {
+    if(x<-149)return 0;
+    if(x<-126)return 1u<<(x+149);
+    if(x>127)return 0x7F800000u;
+    return (x+127)<<23;
     return 2;
 }
